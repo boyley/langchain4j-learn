@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>langchain4j-learn</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>02-prompt-template</artifactId>
+    <packaging>pom</packaging>
+    <name>02 - Prompt Template</name>
+    <description>提示词模板 - PromptTemplate 动态构建提示词</description>
+
+    <modules>
+        <module>prompt-openai</module>
+        <module>prompt-ollama</module>
+        <module>prompt-qwen</module>
+    </modules>
+</project>

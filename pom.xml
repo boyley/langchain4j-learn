@@ -25,8 +25,8 @@
 
     <modules>
         <module>01-basic-chat</module>
-        <!-- TODO: 待实现的模块
         <module>02-prompt-template</module>
+        <!-- TODO: 待实现的模块
         <module>03-ai-services</module>
         <module>04-tools</module>
         <module>05-memory</module>
