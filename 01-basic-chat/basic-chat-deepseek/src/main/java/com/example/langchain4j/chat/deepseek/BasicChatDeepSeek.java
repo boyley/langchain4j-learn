@@ -16,7 +16,7 @@ public class BasicChatDeepSeek {
 
     public static void main(String[] args) {
         // 1. 从环境变量获取配置
-        String apiKey = "sk-0ef148d5769f48fcb25d792c8e50cef3";// System.getenv("DEEPSEEK_API_KEY");
+        String apiKey = System.getenv("DEEPSEEK_API_KEY");
 
         if (apiKey == null || apiKey.isEmpty()) {
             System.err.println("错误: 请设置 DEEPSEEK_API_KEY 环境变量");

@@ -132,9 +132,9 @@ mvn exec:java -pl 04-tools/tools-demo \
 
 ### 05-memory - 会话记忆
 
-**学习内容**: 使用 ChatMemory 实现多轮对话，AI 能记住之前的对话内容。
+**学习内容**: 使用 ChatMemory 实现多轮对话，AI 能记住之前的对话内容。支持多用户会话隔离。
 
-**核心代码**:
+**核心代码 - 单用户**:
 ```java
 ChatMemory memory = MessageWindowChatMemory.builder()
     .maxMessages(10)  // 保留最近10条消息
@@ -146,10 +146,67 @@ Assistant assistant = AiServices.builder(Assistant.class)
     .build();
 ```
 
+**核心代码 - 多用户隔离**:
+```java
+// 使用 @MemoryId 标识不同用户
+interface MultiUserAssistant {
+    String chat(@MemoryId String memoryId, @UserMessage String message);
+}
+
+// 使用 ChatMemoryProvider 为每个用户创建独立记忆
+MultiUserAssistant assistant = AiServices.builder(MultiUserAssistant.class)
+    .chatLanguageModel(model)
+    .chatMemoryProvider(memoryId -> MessageWindowChatMemory.builder()
+        .id(memoryId.toString())
+        .maxMessages(10)
+        .build())
+    .build();
+
+// 不同用户的对话互相隔离
+assistant.chat("user_001", "我叫张三");  // 用户A的会话
+assistant.chat("user_002", "我叫李四");  // 用户B的会话（不知道张三）
+```
+
+**核心代码 - 持久化存储 (Redis/数据库)**:
+```java
+// 实现 ChatMemoryStore 接口
+class RedisChatMemoryStore implements ChatMemoryStore {
+
+    @Override
+    public List<ChatMessage> getMessages(Object memoryId) {
+        // 【SELECT】 redisTemplate.opsForValue().get(key)
+    }
+
+    @Override
+    public void updateMessages(Object memoryId, List<ChatMessage> messages) {
+        // 【INSERT/UPDATE】 redisTemplate.opsForValue().set(key, json)
+    }
+
+    @Override
+    public void deleteMessages(Object memoryId) {
+        // 【DELETE】 redisTemplate.delete(key)
+    }
+}
+
+// 注入自定义存储
+MessageWindowChatMemory.builder()
+    .chatMemoryStore(new RedisChatMemoryStore())  // 或 DatabaseChatMemoryStore
+    .build();
+```
+
 **Demo 运行**:
 ```bash
+# 单用户记忆
 mvn exec:java -pl 05-memory/memory-demo \
   -Dexec.mainClass="com.example.langchain4j.memory.demo.MemoryDemo" -q
+
+# 多用户隔离
+mvn exec:java -pl 05-memory/memory-demo \
+  -Dexec.mainClass="com.example.langchain4j.memory.demo.MultiUserMemoryDemo" -q
+
+# 持久化存储 (Redis/数据库模拟)
+mvn exec:java -pl 05-memory/memory-demo \
+  -Dexec.mainClass="com.example.langchain4j.memory.demo.PersistentMemoryDemo" -q
 ```
 
 ---
@@ -293,8 +350,14 @@ mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.
 # 04 工具调用
 mvn exec:java -pl 04-tools/tools-demo -Dexec.mainClass="com.example.langchain4j.tools.demo.ToolsDemo" -q
 
-# 05 会话记忆
+# 05 会话记忆 (单用户)
 mvn exec:java -pl 05-memory/memory-demo -Dexec.mainClass="com.example.langchain4j.memory.demo.MemoryDemo" -q
+
+# 05 会话记忆 (多用户隔离)
+mvn exec:java -pl 05-memory/memory-demo -Dexec.mainClass="com.example.langchain4j.memory.demo.MultiUserMemoryDemo" -q
+
+# 05 会话记忆 (持久化存储 - Redis/数据库)
+mvn exec:java -pl 05-memory/memory-demo -Dexec.mainClass="com.example.langchain4j.memory.demo.PersistentMemoryDemo" -q
 
 # 06 流式输出
 mvn exec:java -pl 06-streaming/streaming-demo -Dexec.mainClass="com.example.langchain4j.streaming.demo.StreamingDemo" -q

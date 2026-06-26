@@ -2,6 +2,7 @@ package com.example.langchain4j.aiservices.demo;
 
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 
 public interface Assistant {
     String chat(String userMessage);
@@ -10,5 +11,5 @@ public interface Assistant {
     String chatWithSystemPrompt(String userMessage);
 
     @UserMessage("请将以下文本翻译成{{language}}: {{text}}")
-    String translate(String text, String language);
+    String translate(@V("text") String text, @V("language") String language);
 }
