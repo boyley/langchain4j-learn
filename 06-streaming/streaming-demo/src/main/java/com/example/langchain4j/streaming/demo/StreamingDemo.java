@@ -22,11 +22,42 @@ import java.util.concurrent.CompletableFuture;
 public class StreamingDemo {
 
     public static void main(String[] args) throws Exception {
-        // 使用 LangChain4j 官方 Demo API - 无需 API Key！
+        /**
+         * 构建 StreamingChatLanguageModel - 流式聊天模型
+         *
+         * 与普通 ChatLanguageModel 的区别：
+         * - ChatLanguageModel: 等待完整回复后一次性返回
+         * - StreamingChatLanguageModel: 逐个 token 实时返回，用户体验更好
+         *
+         * OpenAiStreamingChatModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址                                           │
+         * │ apiKey          │ API 密钥                                           │
+         * │ modelName       │ 模型名称                                           │
+         * │ temperature     │ 温度参数                                           │
+         * │ maxTokens       │ 最大生成 token 数                                  │
+         * │ timeout         │ 连接超时时间                                       │
+         * │ logRequests     │ 打印请求日志                                       │
+         * │ logResponses    │ 打印响应日志                                       │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         *
+         * StreamingResponseHandler 回调方法：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 方法            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ onNext(token)   │ 每收到一个 token 时调用，用于实时显示              │
+         * │ onComplete(resp)│ 所有 token 接收完毕时调用                          │
+         * │ onError(error)  │ 发生错误时调用                                     │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         StreamingChatLanguageModel model = OpenAiStreamingChatModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("gpt-4o-mini")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址
+                .apiKey("demo")                                    // API 密钥
+                .modelName("gpt-4o-mini")                          // 模型名称
+                // .temperature(0.7)                               // 可选：温度
+                // .timeout(Duration.ofSeconds(60))                 // 可选：超时
                 .build();
 
         System.out.println("=== 流式响应示例 - Demo API (无需 API Key) ===\n");

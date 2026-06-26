@@ -17,11 +17,34 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 public class BasicChatDemo {
 
     public static void main(String[] args) {
-        // 使用 LangChain4j 官方 Demo API - 无需 API Key！
+        /**
+         * 构建 ChatLanguageModel - OpenAI 兼容模型
+         *
+         * OpenAiChatModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址，默认 OpenAI 官方，可改为代理或兼容服务     │
+         * │ apiKey          │ API 密钥，用于身份认证                              │
+         * │ modelName       │ 模型名称，如 gpt-4o-mini, gpt-4, gpt-3.5-turbo     │
+         * │ temperature     │ 温度 0-2，越高回答越随机/创意，越低越确定/保守       │
+         * │ maxTokens       │ 最大生成 token 数，控制回答长度                     │
+         * │ topP            │ 核采样参数 0-1，与 temperature 二选一使用           │
+         * │ timeout         │ 请求超时时间                                       │
+         * │ maxRetries      │ 失败重试次数                                       │
+         * │ logRequests     │ 是否打印请求日志 (调试用)                           │
+         * │ logResponses    │ 是否打印响应日志 (调试用)                           │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         ChatLanguageModel model = OpenAiChatModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("gpt-4o-mini")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址 (Demo 代理)
+                .apiKey("demo")                                    // API 密钥 (Demo 免费)
+                .modelName("gpt-4o-mini")                          // 使用的模型
+                // .temperature(0.7)                               // 可选：温度，默认 0.7
+                // .maxTokens(1000)                                 // 可选：最大 token 数
+                // .timeout(Duration.ofSeconds(60))                 // 可选：超时时间
+                // .logRequests(true)                               // 可选：打印请求
+                // .logResponses(true)                              // 可选：打印响应
                 .build();
 
         System.out.println("=== LangChain4j Demo API 基础对话示例 ===");

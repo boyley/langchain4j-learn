@@ -27,14 +27,35 @@ public class ToolsDemo {
 
         System.out.println("=== 工具调用示例 - Demo API (无需 API Key) ===\n");
 
-        // 创建工具实例
+        // 创建工具实例 (包含 @Tool 和 @P 注解的方法)
         Calculator calculator = new Calculator();
         WeatherService weatherService = new WeatherService();
 
-        // 创建带工具的助手
+        /**
+         * 带工具的 AiServices 构建
+         *
+         * tools() 参数说明：
+         * ┌───────────────────┬─────────────────────────────────────────────────┐
+         * │ 传入内容          │ 说明                                            │
+         * ├───────────────────┼─────────────────────────────────────────────────┤
+         * │ 工具类实例        │ 包含 @Tool 注解方法的对象，可传多个              │
+         * │ ToolProvider      │ 动态提供工具的接口，用于运行时决定可用工具       │
+         * │ ToolSpecification │ 工具规格定义，用于自定义工具描述                 │
+         * └───────────────────┴─────────────────────────────────────────────────┘
+         *
+         * 工具调用流程：
+         * 1. LangChain4j 扫描工具实例中的 @Tool 方法
+         * 2. 生成工具描述 JSON 发送给 AI
+         * 3. AI 根据用户输入选择合适的工具
+         * 4. AI 从用户输入中提取参数 (根据 @P 描述)
+         * 5. LangChain4j 调用对应的 Java 方法
+         * 6. 将返回值传回 AI
+         * 7. AI 组织最终回答
+         */
         AssistantWithTools assistant = AiServices.builder(AssistantWithTools.class)
-                .chatLanguageModel(model)
-                .tools(calculator, weatherService)
+                .chatLanguageModel(model)               // 必须：聊天模型
+                .tools(calculator, weatherService)      // 必须：工具实例 (可传多个)
+                // .chatMemory(memory)                  // 可选：会话记忆
                 .build();
 
         // 测试计算器

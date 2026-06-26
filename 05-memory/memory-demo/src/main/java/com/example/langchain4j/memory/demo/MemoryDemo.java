@@ -33,16 +33,47 @@ public class MemoryDemo {
 
         System.out.println("=== 会话记忆示例 - Demo API (无需 API Key) ===\n");
 
+        /**
+         * ChatMemory 记忆类型说明：
+         *
+         * 1. MessageWindowChatMemory - 滑动窗口记忆 (最常用)
+         *    保留最近 N 条消息，自动丢弃旧消息
+         *
+         * 2. TokenWindowChatMemory - Token 窗口记忆
+         *    按 token 数量限制，更精确控制上下文长度
+         *
+         * MessageWindowChatMemory.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ id              │ 记忆 ID，用于区分不同会话                           │
+         * │ maxMessages     │ 最大消息数，超出后自动删除最早的消息                 │
+         * │ chatMemoryStore │ 持久化存储，可接入 Redis/DB 等 (见 PersistentDemo)  │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         *
+         * TokenWindowChatMemory.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ id              │ 记忆 ID                                            │
+         * │ maxTokens       │ 最大 token 数，精确控制上下文长度                    │
+         * │ tokenizer       │ 分词器，用于计算 token 数量                         │
+         * │ chatMemoryStore │ 持久化存储                                         │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
+
         // 示例 1: MessageWindowChatMemory - 保留最近 N 条消息
         System.out.println("--- 示例 1: MessageWindowChatMemory ---\n");
 
         ChatMemory chatMemory = MessageWindowChatMemory.builder()
-                .maxMessages(10)  // 保留最近10条消息
+                .id("user-session-001")  // 可选：会话 ID，用于区分不同会话
+                .maxMessages(10)         // 必须：保留最近 10 条消息 (5轮对话)
+                // .chatMemoryStore(store) // 可选：持久化存储 (Redis/DB)
                 .build();
 
         AssistantWithMemory assistant = AiServices.builder(AssistantWithMemory.class)
-                .chatLanguageModel(model)
-                .chatMemory(chatMemory)
+                .chatLanguageModel(model)   // 必须：聊天模型
+                .chatMemory(chatMemory)     // 必须：会话记忆
                 .build();
 
         // 多轮对话演示

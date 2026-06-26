@@ -26,9 +26,48 @@ public class AiServicesDemo {
 
         System.out.println("=== AI Services 示例 - Demo API (无需 API Key) ===\n");
 
+        /**
+         * 构建 AI Service - 两种方式
+         *
+         * 方式1: 简单创建 (只需 model)
+         *   AiServices.create(Assistant.class, model);
+         *
+         * 方式2: Builder 模式 (完整配置)
+         *   AiServices.builder(Assistant.class)
+         *       .chatLanguageModel(model)      // 必须：聊天模型
+         *       .chatMemory(memory)            // 可选：会话记忆，实现多轮对话
+         *       .chatMemoryProvider(provider)  // 可选：多用户记忆提供者
+         *       .tools(tool1, tool2)           // 可选：工具类实例，让 AI 调用方法
+         *       .contentRetriever(retriever)   // 可选：内容检索器，用于 RAG
+         *       .retrievalAugmentor(augmentor) // 可选：检索增强器，高级 RAG 配置
+         *       .moderationModel(modModel)     // 可选：内容审核模型
+         *       .build();
+         *
+         * AiServices.builder() 参数说明：
+         * ┌──────────────────────┬──────────────────────────────────────────────┐
+         * │ 参数                 │ 说明                                         │
+         * ├──────────────────────┼──────────────────────────────────────────────┤
+         * │ chatLanguageModel    │ 聊天模型，必须，处理对话请求                  │
+         * │ streamingModel       │ 流式模型，用于流式输出场景                    │
+         * │ chatMemory           │ 单用户会话记忆，保存对话历史                  │
+         * │ chatMemoryProvider   │ 多用户记忆提供者，根据 @MemoryId 隔离用户     │
+         * │ tools                │ 工具实例，AI 可调用的 @Tool 方法              │
+         * │ contentRetriever     │ 内容检索器，从知识库检索相关内容 (RAG)        │
+         * │ retrievalAugmentor   │ 检索增强器，自定义 RAG 流程                  │
+         * │ moderationModel      │ 内容审核模型，过滤不当内容                    │
+         * └──────────────────────┴──────────────────────────────────────────────┘
+         */
+
         // Assistant 示例
         System.out.println("--- 示例 1: Assistant 接口 ---\n");
+
+        // 简单创建方式
         Assistant assistant = AiServices.create(Assistant.class, model);
+
+        // 等价于 Builder 方式:
+        // Assistant assistant = AiServices.builder(Assistant.class)
+        //         .chatLanguageModel(model)
+        //         .build();
 
         String response1 = assistant.chat("什么是 LangChain4j？");
         System.out.println("chat(): " + response1);
