@@ -416,10 +416,43 @@ Assistant assistant = AiServices.builder(Assistant.class)
     .build();
 ```
 
+**企业知识库方案 - 多部门 + 权限控制**:
+```java
+// 1. 文档存储时附加 Metadata（元数据）
+Metadata metadata = Metadata.from(Map.of(
+    "department", "HR",           // 所属部门
+    "accessLevel", "confidential", // 访问级别：public/internal/confidential
+    "tags", "薪资,机密"            // 标签
+));
+TextSegment segment = TextSegment.from(content, metadata);
+store.add(embedding, segment);
+
+// 2. 搜索时根据用户权限过滤
+Filter filter = MetadataFilterBuilder
+    .metadataKey("department").isIn(user.accessDepartments)  // 部门过滤
+    .and(MetadataFilterBuilder.metadataKey("accessLevel").isIn(allowedLevels)); // 权限过滤
+
+EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
+    .queryEmbedding(queryEmbedding)
+    .filter(filter)  // 只返回用户有权限的文档
+    .maxResults(3)
+    .build();
+
+// 3. 结果：不同用户搜索同一问题，看到的文档不同！
+// 普通员工: 只看到公开文档
+// 部门经理: 看到部门内部文档
+// 高管: 看到所有机密文档
+```
+
 **Demo 运行**:
 ```bash
+# 基础 RAG
 mvn exec:java -pl 08-rag/rag-demo \
   -Dexec.mainClass="com.example.langchain4j.rag.demo.RagDemo" -q
+
+# 企业知识库（多部门+权限控制）
+mvn exec:java -pl 08-rag/rag-demo \
+  -Dexec.mainClass="com.example.langchain4j.rag.demo.EnterpriseKnowledgeBaseDemo" -q
 ```
 
 ---
@@ -491,8 +524,11 @@ mvn exec:java -pl 06-streaming/streaming-demo -Dexec.mainClass="com.example.lang
 # 07 文本向量
 mvn exec:java -pl 07-embedding/embedding-demo -Dexec.mainClass="com.example.langchain4j.embedding.demo.EmbeddingDemo" -q
 
-# 08 RAG 检索增强
+# 08 RAG 检索增强 (基础)
 mvn exec:java -pl 08-rag/rag-demo -Dexec.mainClass="com.example.langchain4j.rag.demo.RagDemo" -q
+
+# 08 RAG 企业知识库 (多部门+权限控制)
+mvn exec:java -pl 08-rag/rag-demo -Dexec.mainClass="com.example.langchain4j.rag.demo.EnterpriseKnowledgeBaseDemo" -q
 
 # 09 智能代理
 mvn exec:java -pl 09-agent/agent-demo -Dexec.mainClass="com.example.langchain4j.agent.demo.AgentDemo" -q
