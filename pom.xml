@@ -29,8 +29,8 @@
         <module>03-ai-services</module>
         <module>04-tools</module>
         <module>05-memory</module>
-        <!-- TODO: 待实现的模块
         <module>06-streaming</module>
+        <!-- TODO: 待实现的模块
         <module>07-embedding</module>
         <module>08-rag</module>
         <module>09-agent</module>
