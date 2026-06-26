@@ -337,19 +337,44 @@ mvn exec:java -pl 06-streaming/streaming-demo \
 
 ---
 
-### 07-embedding - 文本向量化
+### 07-embedding - 文本向量化 (Embedding)
 
-**学习内容**: 使用 EmbeddingModel 将文本转换为向量，计算文本相似度。
+**Embedding 是什么？** 把文字变成一组数字（向量），让计算机能"理解"语义。
+
+**解决什么问题？** 传统关键词匹配无法理解语义，"密码忘了" 搜不到 "重置密码"。
+
+**怎么解决？** 语义相近的文本 → 向量也相近 → 可以计算相似度。
+
+```
+"我喜欢苹果" → [0.12, -0.34, 0.56, ...]  ─┐
+                                          ├─ 向量相似 → 意思相近！
+"我爱吃苹果" → [0.11, -0.33, 0.55, ...]  ─┘
+
+"今天下雨了" → [0.89, 0.23, -0.67, ...]  ← 向量差异大 → 意思不同
+```
+
+**应用场景**:
+| 场景 | 说明 |
+|------|------|
+| 语义搜索 | 搜"苹果手机"能找到"iPhone" |
+| 智能客服 | 用户问法不同也能匹配到答案 |
+| 推荐系统 | 找相似的商品/文章/视频 |
+| **RAG** | 让 AI 从文档中找信息再回答（最重要！见08-rag） |
 
 **核心代码**:
 ```java
 EmbeddingModel model = OpenAiEmbeddingModel.builder()
-    .apiKey("your-api-key")
+    .baseUrl("http://langchain4j.dev/demo/openai/v1")
+    .apiKey("demo")
     .modelName("text-embedding-3-small")
     .build();
 
+// 文本 → 向量
 Embedding embedding = model.embed("Java 编程").content();
-float[] vector = embedding.vector();  // 获取向量
+float[] vector = embedding.vector();  // 1536 个数字
+
+// 计算相似度
+double similarity = cosineSimilarity(vector1, vector2);  // 0~1，越大越相似
 ```
 
 **Demo 运行**:
