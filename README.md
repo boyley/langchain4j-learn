@@ -142,18 +142,46 @@ mvn exec:java -pl 03-ai-services/ai-services-demo \
 
 **学习内容**: 使用 @Tool 注解定义工具方法，让 AI 自动选择并调用合适的工具。
 
+**核心注解说明**:
+| 注解 | 作用 | 示例 |
+|------|------|------|
+| `@Tool("描述")` | 告诉 AI 这个方法能做什么 | `@Tool("计算两数之和")` |
+| `@P("描述")` | 告诉 AI 这个参数是什么 | `@P("第一个加数") double a` |
+| 返回值 | 工具执行结果，AI 用它组织回答 | `return a + b;` |
+
+**工作流程**:
+```
+用户: "帮我算一下 15 加 27"
+  ↓
+AI 分析: 需要加法运算 → 选择 add 方法
+  ↓
+AI 提取参数: a=15, b=27 (根据 @P 描述)
+  ↓
+LangChain4j 调用: add(15, 27) → 返回 42
+  ↓
+AI 组织回答: "15 + 27 的结果是 42"
+```
+
 **核心代码**:
 ```java
 public class Calculator {
-    @Tool("计算两个数的和")
-    public double add(double a, double b) {
-        return a + b;
+    /**
+     * @Tool - AI 根据描述决定是否调用此方法
+     * @P   - AI 从用户输入中提取参数值
+     * 返回值 - 执行结果，AI 用它来回答用户
+     */
+    @Tool("计算两个数的和，用于加法运算")
+    public double add(
+            @P("第一个加数") double a,
+            @P("第二个加数") double b) {
+        return a + b;  // 返回 42，AI 回答"结果是42"
     }
 }
 
+// 注册工具
 Assistant assistant = AiServices.builder(Assistant.class)
     .chatLanguageModel(model)
-    .tools(new Calculator())
+    .tools(new Calculator(), new WeatherService())  // 可注册多个工具
     .build();
 ```
 
