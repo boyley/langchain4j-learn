@@ -32,9 +32,7 @@
         <module>06-streaming</module>
         <module>07-embedding</module>
         <module>08-rag</module>
-        <!-- TODO: 待实现的模块
         <module>09-agent</module>
-        -->
     </modules>
 
     <dependencyManagement>
