@@ -125,6 +125,34 @@ Person person = extractor.extractPerson("张三是阿里的工程师，32岁");
 // person.name() = "张三", person.age() = 32, person.company() = "阿里"
 ```
 
+**核心代码 - @SystemMessage 系统提示（角色设定）**:
+```java
+/**
+ * @SystemMessage 作用：设定 AI 的角色、行为规则、回答风格
+ * 用户看不到系统提示，但 AI 会始终遵循
+ *
+ * 使用场景：
+ * - 客服机器人：限定只回答产品问题
+ * - 代码专家：要求提供代码示例
+ * - 翻译助手：只返回翻译结果，不加解释
+ * - 儿童教育：使用简单语言
+ */
+@SystemMessage("""
+    你是"智能科技公司"的客服机器人。
+    职责：回答产品咨询、处理售后问题
+    规则：不透露公司内部信息，不回答无关问题
+    风格：简洁、友好、专业
+    """)
+interface CustomerServiceBot {
+    String chat(String message);
+}
+
+// 使用
+CustomerServiceBot bot = AiServices.create(CustomerServiceBot.class, model);
+bot.chat("你们公司一年赚多少钱？");
+// AI 回复：抱歉，我无法提供公司财务信息...
+```
+
 **Demo 运行**:
 ```bash
 # 基础用法
@@ -134,6 +162,10 @@ mvn exec:java -pl 03-ai-services/ai-services-demo \
 # 信息提取示例
 mvn exec:java -pl 03-ai-services/ai-services-demo \
   -Dexec.mainClass="com.example.langchain4j.aiservices.demo.ExtractorDemo" -q
+
+# 系统提示示例（角色设定：客服、专家、翻译、儿童教育等）
+mvn exec:java -pl 03-ai-services/ai-services-demo \
+  -Dexec.mainClass="com.example.langchain4j.aiservices.demo.SystemMessageDemo" -q
 ```
 
 ---
@@ -412,6 +444,9 @@ mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.
 
 # 03 AI Services (信息提取)
 mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.langchain4j.aiservices.demo.ExtractorDemo" -q
+
+# 03 AI Services (系统提示 - 角色设定)
+mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.langchain4j.aiservices.demo.SystemMessageDemo" -q
 
 # 04 工具调用
 mvn exec:java -pl 04-tools/tools-demo -Dexec.mainClass="com.example.langchain4j.tools.demo.ToolsDemo" -q
