@@ -21,5 +21,6 @@
         <module>basic-chat-openai</module>
         <module>basic-chat-ollama</module>
         <module>basic-chat-qwen</module>
+        <module>basic-chat-deepseek</module>
     </modules>
 </project>

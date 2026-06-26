@@ -20,5 +20,6 @@
         <module>prompt-openai</module>
         <module>prompt-ollama</module>
         <module>prompt-qwen</module>
+        <module>prompt-deepseek</module>
     </modules>
 </project>

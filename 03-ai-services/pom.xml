@@ -20,5 +20,6 @@
         <module>ai-services-openai</module>
         <module>ai-services-ollama</module>
         <module>ai-services-qwen</module>
+        <module>ai-services-deepseek</module>
     </modules>
 </project>

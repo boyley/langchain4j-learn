@@ -19,5 +19,6 @@
     <modules>
         <module>agent-openai</module>
         <module>agent-ollama</module>
+        <module>agent-deepseek</module>
     </modules>
 </project>

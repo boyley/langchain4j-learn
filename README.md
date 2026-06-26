@@ -2,6 +2,13 @@
 
 按功能领域划分的 LangChain4j 学习项目，每个功能下包含多种 LLM 提供商的示例。
 
+## 支持的 LLM 提供商
+
+- **OpenAI** - GPT-3.5/GPT-4 系列模型
+- **Ollama** - 本地运行的开源模型 (Llama, Qwen 等)
+- **通义千问 (Qwen)** - 阿里云通义千问模型
+- **DeepSeek** - DeepSeek 系列模型 (deepseek-chat, deepseek-coder)
+
 ## 环境要求
 
 - Java 17+

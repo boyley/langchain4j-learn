@@ -20,5 +20,6 @@
         <module>streaming-openai</module>
         <module>streaming-ollama</module>
         <module>streaming-qwen</module>
+        <module>streaming-deepseek</module>
     </modules>
 </project>

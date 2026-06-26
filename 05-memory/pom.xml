@@ -20,5 +20,6 @@
         <module>memory-openai</module>
         <module>memory-ollama</module>
         <module>memory-qwen</module>
+        <module>memory-deepseek</module>
     </modules>
 </project>
