@@ -22,5 +22,6 @@
         <module>basic-chat-ollama</module>
         <module>basic-chat-qwen</module>
         <module>basic-chat-deepseek</module>
+        <module>basic-chat-bailian</module>
     </modules>
 </project>

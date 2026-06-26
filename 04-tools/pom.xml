@@ -21,5 +21,6 @@
         <module>tools-ollama</module>
         <module>tools-qwen</module>
         <module>tools-deepseek</module>
+        <module>tools-bailian</module>
     </modules>
 </project>

@@ -19,5 +19,6 @@
     <modules>
         <module>rag-openai</module>
         <module>rag-ollama</module>
+        <module>rag-bailian</module>
     </modules>
 </project>

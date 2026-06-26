@@ -21,5 +21,6 @@
         <module>streaming-ollama</module>
         <module>streaming-qwen</module>
         <module>streaming-deepseek</module>
+        <module>streaming-bailian</module>
     </modules>
 </project>

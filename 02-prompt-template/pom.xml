@@ -21,5 +21,6 @@
         <module>prompt-ollama</module>
         <module>prompt-qwen</module>
         <module>prompt-deepseek</module>
+        <module>prompt-bailian</module>
     </modules>
 </project>

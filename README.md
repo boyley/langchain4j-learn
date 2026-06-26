@@ -8,6 +8,7 @@
 - **Ollama** - 本地运行的开源模型 (Llama, Qwen 等)
 - **通义千问 (Qwen)** - 阿里云通义千问模型
 - **DeepSeek** - DeepSeek 系列模型 (deepseek-chat, deepseek-coder)
+- **阿里百炼 (Bailian)** - 阿里云百炼平台 (qwen-plus, qwen-turbo, qwen-max)
 
 ## 环境要求
 

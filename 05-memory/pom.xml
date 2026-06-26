@@ -21,5 +21,6 @@
         <module>memory-ollama</module>
         <module>memory-qwen</module>
         <module>memory-deepseek</module>
+        <module>memory-bailian</module>
     </modules>
 </project>

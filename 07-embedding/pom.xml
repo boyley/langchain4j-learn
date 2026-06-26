@@ -19,5 +19,6 @@
     <modules>
         <module>embedding-openai</module>
         <module>embedding-ollama</module>
+        <module>embedding-bailian</module>
     </modules>
 </project>
