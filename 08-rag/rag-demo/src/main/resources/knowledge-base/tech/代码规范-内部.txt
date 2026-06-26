@@ -1,0 +1,67 @@
+# 代码开发规范（内部文档）
+
+## 基本原则
+- 遵循阿里巴巴 Java 开发手册
+- 代码必须通过 SonarQube 检查
+- PR 必须有至少 2 人 Review
+
+## 命名规范
+
+### 包名
+- 全小写，点分隔
+- 格式：com.company.project.module
+
+### 类名
+- 大驼峰命名法
+- 接口不加 I 前缀
+- 实现类加 Impl 后缀
+- 抽象类加 Abstract 前缀
+
+### 方法名
+- 小驼峰命名法
+- 动词开头：get, set, is, has, create, delete, update
+
+### 常量
+- 全大写，下划线分隔
+- 示例：MAX_RETRY_COUNT
+
+## 代码格式
+- 缩进：4个空格（不用Tab）
+- 行宽：120字符
+- 大括号：同行左括号
+
+## 注释规范
+- 类注释：说明用途、作者、日期
+- 方法注释：Javadoc 格式
+- 行内注释：解释复杂逻辑
+
+## Git 规范
+
+### 分支命名
+- feature/xxx：新功能
+- bugfix/xxx：Bug修复
+- hotfix/xxx：紧急修复
+
+### Commit 格式
+```
+<type>(<scope>): <subject>
+
+feat: 新功能
+fix: Bug修复
+docs: 文档更新
+refactor: 重构
+test: 测试
+```
+
+## Code Review 要点
+1. 逻辑正确性
+2. 边界条件处理
+3. 异常处理
+4. 性能影响
+5. 安全风险
+
+---
+文档属性：
+- 部门：技术部
+- 访问级别：internal（内部）
+- 更新日期：2024-01-25

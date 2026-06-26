@@ -1,0 +1,38 @@
+# 公司技术栈说明
+
+## 后端技术
+- **语言**: Java 17 (LTS版本)
+- **框架**: Spring Boot 3.x + Spring Cloud
+- **数据库**: MySQL 8.0 (主库) + Redis 7.0 (缓存)
+- **消息队列**: Apache Kafka
+- **搜索引擎**: Elasticsearch 8.x
+- **容器化**: Docker + Kubernetes
+
+## 前端技术
+- **框架**: React 18 + TypeScript
+- **状态管理**: Redux Toolkit
+- **UI组件**: Ant Design 5.x
+- **构建工具**: Vite
+
+## AI/ML 技术
+- **框架**: LangChain4j, PyTorch
+- **向量数据库**: Milvus
+- **模型服务**: 自研推理平台
+
+## DevOps
+- **CI/CD**: GitLab CI
+- **监控**: Prometheus + Grafana
+- **日志**: ELK Stack
+- **APM**: SkyWalking
+
+## 开发工具
+- **IDE**: IntelliJ IDEA (后端), VS Code (前端)
+- **版本控制**: GitLab
+- **项目管理**: Jira
+- **文档**: Confluence
+
+---
+文档属性：
+- 部门：技术部
+- 访问级别：public（公开）
+- 更新日期：2024-01-10
