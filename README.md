@@ -81,24 +81,59 @@ mvn exec:java -pl 02-prompt-template/prompt-demo \
 
 **学习内容**: 使用 @AiService 注解定义接口，框架自动生成实现。支持返回枚举、布尔值、数字等类型。
 
-**核心代码**:
+**核心注解说明**:
+| 注解 | 作用 | 示例 |
+|------|------|------|
+| `@SystemMessage` | 设置 AI 角色/行为 | `@SystemMessage("你是客服助手")` |
+| `@UserMessage` | 定义提示词模板 | `@UserMessage("翻译: {{text}}")` |
+| `@V("变量名")` | 绑定参数到模板变量 | `@V("text") String text` |
+| 返回类型 | AI 自动解析为指定类型 | `Person`, `List<String>`, `Enum` |
+
+**核心代码 - 基础用法**:
 ```java
 public interface Assistant {
     @SystemMessage("你是一个友好的助手")
     String chat(String message);
 
     @UserMessage("将 {{text}} 翻译成 {{language}}")
-    String translate(String text, String language);
+    String translate(@V("text") String text, @V("language") String language);
 }
 
 Assistant assistant = AiServices.create(Assistant.class, model);
 String result = assistant.chat("你好");
 ```
 
+**核心代码 - 信息提取（结构化输出）**:
+```java
+// 1. 定义要提取的数据结构
+record Person(String name, Integer age, String company) {}
+
+// 2. 定义提取接口
+interface Extractor {
+    @UserMessage("从文本提取人员信息: {{text}}")
+    Person extractPerson(@V("text") String text);
+
+    @UserMessage("提取所有人名: {{text}}")
+    List<String> extractNames(@V("text") String text);
+
+    @UserMessage("分析情感: {{text}}")
+    Sentiment analyzeSentiment(@V("text") String text);  // 返回枚举
+}
+
+// 3. 使用 - AI 自动将文本转为结构化对象
+Person person = extractor.extractPerson("张三是阿里的工程师，32岁");
+// person.name() = "张三", person.age() = 32, person.company() = "阿里"
+```
+
 **Demo 运行**:
 ```bash
+# 基础用法
 mvn exec:java -pl 03-ai-services/ai-services-demo \
   -Dexec.mainClass="com.example.langchain4j.aiservices.demo.AiServicesDemo" -q
+
+# 信息提取示例
+mvn exec:java -pl 03-ai-services/ai-services-demo \
+  -Dexec.mainClass="com.example.langchain4j.aiservices.demo.ExtractorDemo" -q
 ```
 
 ---
@@ -344,8 +379,11 @@ mvn exec:java -pl 01-basic-chat/basic-chat-demo -Dexec.mainClass="com.example.la
 # 02 提示词模板
 mvn exec:java -pl 02-prompt-template/prompt-demo -Dexec.mainClass="com.example.langchain4j.prompt.demo.PromptTemplateDemo" -q
 
-# 03 AI Services
+# 03 AI Services (基础)
 mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.langchain4j.aiservices.demo.AiServicesDemo" -q
+
+# 03 AI Services (信息提取)
+mvn exec:java -pl 03-ai-services/ai-services-demo -Dexec.mainClass="com.example.langchain4j.aiservices.demo.ExtractorDemo" -q
 
 # 04 工具调用
 mvn exec:java -pl 04-tools/tools-demo -Dexec.mainClass="com.example.langchain4j.tools.demo.ToolsDemo" -q
