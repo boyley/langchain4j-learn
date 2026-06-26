@@ -1,0 +1,31 @@
+LangChain4j 是一个 Java 版本的 LangChain 框架，用于构建 AI 应用。
+它支持多种 LLM 提供商，包括 OpenAI、Ollama、阿里云通义千问等。
+
+LangChain4j 的主要特性包括：
+1. AI Services - 声明式 AI 服务，使用接口定义 AI 能力
+2. Tools - 工具调用，让 AI 可以执行函数
+3. Memory - 会话记忆，支持多轮对话
+4. RAG - 检索增强生成，结合知识库回答问题
+5. Streaming - 流式响应，实时输出
+
+LangChain4j 要求 Java 17 或更高版本。
+可以通过 Maven 或 Gradle 引入依赖。
+官方文档地址: https://docs.langchain4j.dev/
+
+使用 AiServices 可以快速创建 AI 助手：
+定义接口，然后使用 AiServices.create() 方法即可。
+支持 @SystemMessage 定义系统提示词，@UserMessage 定义用户消息模板。
+
+RAG (Retrieval Augmented Generation) 检索增强生成的工作原理：
+1. 文档分割 - 将大文档分割成小片段
+2. 向量化 - 使用 Embedding 模型将文本转换为向量
+3. 存储 - 将向量存储到向量数据库中
+4. 检索 - 用户提问时，先检索相关的文档片段
+5. 生成 - 将检索到的内容与问题一起发送给 LLM 生成回答
+
+常用的向量存储方式：
+- InMemoryEmbeddingStore - 内存存储，适合开发测试
+- Chroma - 开源向量数据库
+- Pinecone - 云端向量数据库
+- Milvus - 开源分布式向量数据库
+- Qdrant - 开源向量搜索引擎

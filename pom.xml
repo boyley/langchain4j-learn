@@ -31,8 +31,8 @@
         <module>05-memory</module>
         <module>06-streaming</module>
         <module>07-embedding</module>
-        <!-- TODO: 待实现的模块
         <module>08-rag</module>
+        <!-- TODO: 待实现的模块
         <module>09-agent</module>
         -->
     </modules>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>langchain4j-learn</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>08-rag</artifactId>
+    <packaging>pom</packaging>
+    <name>08 - RAG</name>
+    <description>RAG - 检索增强生成，结合知识库回答问题</description>
+
+    <modules>
+        <module>rag-openai</module>
+        <module>rag-ollama</module>
+    </modules>
+</project>
