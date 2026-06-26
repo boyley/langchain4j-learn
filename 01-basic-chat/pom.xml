@@ -17,6 +17,7 @@
     <description>基础对话 - ChatLanguageModel 基本使用</description>
 
     <modules>
+        <module>basic-chat-demo</module>
         <module>basic-chat-openai</module>
         <module>basic-chat-ollama</module>
         <module>basic-chat-qwen</module>
