@@ -25,6 +25,7 @@
 
     <modules>
         <module>01-basic-chat</module>
+        <!-- TODO: 待实现的模块
         <module>02-prompt-template</module>
         <module>03-ai-services</module>
         <module>04-tools</module>
@@ -33,6 +34,7 @@
         <module>07-embedding</module>
         <module>08-rag</module>
         <module>09-agent</module>
+        -->
     </modules>
 
     <dependencyManagement>
