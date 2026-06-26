@@ -118,6 +118,7 @@ public class DocumentSplitterDemo {
         // 示例 1: recursive 递归分割（推荐）
         // ═══════════════════════════════════════════════════════════════
         System.out.println("【示例 1】recursive 递归分割（推荐）");
+        // 注意: repeat(60) 仅用于打印 60 个分隔符字符，是显示格式，非框架参数
         System.out.println("─".repeat(60));
         System.out.println("""
             递归分割策略：
@@ -333,16 +334,27 @@ public class DocumentSplitterDemo {
 
     /**
      * 打印分割结果
+     *
+     * 注意：此方法中的数字都是显示格式参数，非框架参数：
+     * - 60: 预览文本最大显示字符数（超过截断显示）
+     * - 3: 最多显示前 3 个片段（避免输出过多）
      */
     private static void printSegments(String splitterName, List<TextSegment> segments) {
         System.out.println("分割结果: " + segments.size() + " 个片段\n");
+
+        // Math.min(3, size): 最多显示前 3 个片段（仅用于演示，非框架限制）
         for (int i = 0; i < Math.min(3, segments.size()); i++) {
             String text = segments.get(i).text();
+
+            // 60: 预览文本最大字符数（仅用于控制台显示，非框架参数）
+            // 超过 60 字符的内容截断并添加 "..."
             String preview = text.length() > 60
                     ? text.substring(0, 60).replace("\n", "↵") + "..."
                     : text.replace("\n", "↵");
+
             System.out.printf("  片段 %d (%d 字符): %s%n", i + 1, text.length(), preview);
         }
+
         if (segments.size() > 3) {
             System.out.println("  ... 还有 " + (segments.size() - 3) + " 个片段");
         }
