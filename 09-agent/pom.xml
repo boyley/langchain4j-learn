@@ -17,6 +17,7 @@
     <description>Agent - 自主决策代理，可以自动选择和调用工具</description>
 
     <modules>
+        <module>agent-demo</module>
         <module>agent-openai</module>
         <module>agent-ollama</module>
         <module>agent-deepseek</module>

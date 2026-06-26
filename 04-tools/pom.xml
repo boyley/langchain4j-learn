@@ -17,6 +17,7 @@
     <description>Tools - @Tool 注解实现函数调用</description>
 
     <modules>
+        <module>tools-demo</module>
         <module>tools-openai</module>
         <module>tools-ollama</module>
         <module>tools-qwen</module>

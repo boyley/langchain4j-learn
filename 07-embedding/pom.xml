@@ -17,6 +17,7 @@
     <description>Embedding - EmbeddingModel 实现文本向量化</description>
 
     <modules>
+        <module>embedding-demo</module>
         <module>embedding-openai</module>
         <module>embedding-ollama</module>
         <module>embedding-bailian</module>

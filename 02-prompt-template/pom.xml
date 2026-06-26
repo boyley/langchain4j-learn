@@ -17,6 +17,7 @@
     <description>提示词模板 - PromptTemplate 动态构建提示词</description>
 
     <modules>
+        <module>prompt-demo</module>
         <module>prompt-openai</module>
         <module>prompt-ollama</module>
         <module>prompt-qwen</module>

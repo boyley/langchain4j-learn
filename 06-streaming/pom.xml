@@ -17,6 +17,7 @@
     <description>Streaming - StreamingChatLanguageModel 实现实时 Token 输出</description>
 
     <modules>
+        <module>streaming-demo</module>
         <module>streaming-openai</module>
         <module>streaming-ollama</module>
         <module>streaming-qwen</module>

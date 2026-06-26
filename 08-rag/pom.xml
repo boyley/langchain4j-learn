@@ -17,6 +17,7 @@
     <description>RAG - 检索增强生成，结合知识库回答问题</description>
 
     <modules>
+        <module>rag-demo</module>
         <module>rag-openai</module>
         <module>rag-ollama</module>
         <module>rag-bailian</module>

@@ -17,6 +17,7 @@
     <description>AI Services - @AiService 声明式接口自动实现</description>
 
     <modules>
+        <module>ai-services-demo</module>
         <module>ai-services-openai</module>
         <module>ai-services-ollama</module>
         <module>ai-services-qwen</module>

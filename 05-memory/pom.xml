@@ -17,6 +17,7 @@
     <description>Memory - ChatMemory 实现多轮对话记忆</description>
 
     <modules>
+        <module>memory-demo</module>
         <module>memory-openai</module>
         <module>memory-ollama</module>
         <module>memory-qwen</module>
