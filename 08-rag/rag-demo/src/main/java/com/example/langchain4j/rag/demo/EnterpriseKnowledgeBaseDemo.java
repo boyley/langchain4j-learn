@@ -97,20 +97,55 @@ public class EnterpriseKnowledgeBaseDemo {
     }
 
     public static void main(String[] args) {
-        // 初始化模型
+        /**
+         * 初始化模型
+         *
+         * OpenAiEmbeddingModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址                                           │
+         * │ apiKey          │ API 密钥                                           │
+         * │ modelName       │ 向量模型名称 (text-embedding-3-small: 1536 维)     │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         EmbeddingModel embeddingModel = OpenAiEmbeddingModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("text-embedding-3-small")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址
+                .apiKey("demo")                                    // API 密钥
+                .modelName("text-embedding-3-small")               // 向量模型
                 .build();
 
+        /**
+         * OpenAiChatModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址                                           │
+         * │ apiKey          │ API 密钥                                           │
+         * │ modelName       │ 聊天模型名称                                       │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         ChatLanguageModel chatModel = OpenAiChatModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("gpt-4o-mini")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址
+                .apiKey("demo")                                    // API 密钥
+                .modelName("gpt-4o-mini")                          // 聊天模型
                 .build();
 
-        // 创建向量存储（生产环境用 Milvus/Pinecone/ES 等）
+        /**
+         * EmbeddingStore - 向量存储
+         *
+         * 生产环境存储选择：
+         * ┌─────────────────────┬───────────────────────────────────────────────┐
+         * │ 存储类型            │ 说明                                          │
+         * ├─────────────────────┼───────────────────────────────────────────────┤
+         * │ InMemoryEmbedding   │ 内存存储，重启丢失，适合测试/Demo              │
+         * │ MilvusEmbedding     │ Milvus 向量数据库，高性能，生产推荐            │
+         * │ PineconeEmbedding   │ Pinecone 托管服务                             │
+         * │ ElasticsearchEmb    │ ES 向量搜索                                   │
+         * │ PgVectorEmbedding   │ PostgreSQL + pgvector 扩展                    │
+         * │ RedisEmbedding      │ Redis Stack 向量搜索                          │
+         * └─────────────────────┴───────────────────────────────────────────────┘
+         */
         EmbeddingStore<TextSegment> store = new InMemoryEmbeddingStore<>();
 
         System.out.println("═".repeat(60));
@@ -321,24 +356,52 @@ public class EnterpriseKnowledgeBaseDemo {
 
     /**
      * 根据用户权限搜索
+     *
+     * 搜索流程：
+     * 1. 将查询文本转为向量
+     * 2. 根据用户权限构建过滤器
+     * 3. 在向量库中搜索，同时应用过滤器
+     * 4. 返回用户有权限访问的相关文档
      */
     private static void searchWithPermission(EmbeddingStore<TextSegment> store,
                                              EmbeddingModel embeddingModel,
                                              String query,
                                              User user) {
-        // 生成查询向量
+        // 生成查询向量 - 将问题转为向量用于相似度计算
         Embedding queryEmbedding = embeddingModel.embed(query).content();
 
-        // 构建权限过滤器
+        // 构建权限过滤器 - 根据用户权限过滤文档
         Filter filter = buildPermissionFilter(user);
 
-        // 执行带过滤的搜索
+        /**
+         * EmbeddingSearchRequest.builder() - 构建搜索请求
+         *
+         * 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ queryEmbedding  │ 必须：查询向量，由问题文本通过 EmbeddingModel 生成 │
+         * │ filter          │ 可选：元数据过滤器，按条件过滤文档                  │
+         * │                 │ 支持 AND/OR 组合多个条件                           │
+         * │ maxResults      │ 可选：最多返回几个结果，默认 3                      │
+         * │ minScore        │ 可选：最低相似度阈值 (0-1)，过滤低相关结果          │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         *
+         * 权限过滤原理：
+         *   filter = department IN [用户可访问部门]
+         *            AND accessLevel IN [用户可访问级别]
+         *
+         * 执行结果：
+         *   只返回同时满足"语义相似"和"权限允许"的文档
+         */
         EmbeddingSearchRequest request = EmbeddingSearchRequest.builder()
-                .queryEmbedding(queryEmbedding)
-                .filter(filter)
-                .maxResults(3)
+                .queryEmbedding(queryEmbedding)  // 必须：查询向量
+                .filter(filter)                   // 可选：权限过滤器
+                .maxResults(3)                    // 可选：最多返回 3 个结果
+                // .minScore(0.5)                 // 可选：相似度 >= 0.5 才返回
                 .build();
 
+        // 执行搜索 - 向量相似度 + 元数据过滤
         EmbeddingSearchResult<TextSegment> result = store.search(request);
 
         // 显示结果
@@ -364,6 +427,40 @@ public class EnterpriseKnowledgeBaseDemo {
      * 过滤逻辑：
      * 1. 部门必须在用户可访问的部门列表中
      * 2. 访问级别必须 <= 用户的最高访问级别
+     *
+     * MetadataFilterBuilder - 元数据过滤器构建器
+     * ═══════════════════════════════════════════════════════════════════════════
+     *
+     * 支持的比较操作：
+     * ┌───────────────────────┬──────────────────────────────────────────────┐
+     * │ 方法                  │ 说明                                         │
+     * ├───────────────────────┼──────────────────────────────────────────────┤
+     * │ isEqualTo(value)      │ 精确匹配: department = "HR"                  │
+     * │ isNotEqualTo(value)   │ 不等于: status != "deleted"                  │
+     * │ isIn(collection)      │ 包含于: department IN ["HR", "技术部"]        │
+     * │ isNotIn(collection)   │ 不包含: level NOT IN ["secret"]              │
+     * │ isGreaterThan(value)  │ 大于: priority > 5                           │
+     * │ isLessThan(value)     │ 小于: score < 0.5                            │
+     * │ isGreaterThanOrEqual  │ 大于等于: level >= 2                          │
+     * │ isLessThanOrEqual     │ 小于等于: year <= 2024                        │
+     * └───────────────────────┴──────────────────────────────────────────────┘
+     *
+     * 逻辑组合：
+     * ┌───────────────────────┬──────────────────────────────────────────────┐
+     * │ 方法                  │ 说明                                         │
+     * ├───────────────────────┼──────────────────────────────────────────────┤
+     * │ filter1.and(filter2)  │ 同时满足两个条件                              │
+     * │ filter1.or(filter2)   │ 满足其中一个条件                              │
+     * │ filter.not()          │ 取反                                         │
+     * └───────────────────────┴──────────────────────────────────────────────┘
+     *
+     * 示例:
+     *   // 简单过滤: 部门 = HR
+     *   MetadataFilterBuilder.metadataKey("department").isEqualTo("HR")
+     *
+     *   // 组合过滤: 部门 IN [HR, 技术] AND 级别 = public
+     *   MetadataFilterBuilder.metadataKey("department").isIn(Set.of("HR", "技术"))
+     *       .and(MetadataFilterBuilder.metadataKey("accessLevel").isEqualTo("public"))
      */
     private static Filter buildPermissionFilter(User user) {
         // 根据用户最高权限确定可访问的级别列表
@@ -377,10 +474,13 @@ public class EnterpriseKnowledgeBaseDemo {
             allowedLevels.add(ACCESS_CONFIDENTIAL);
         }
 
-        // 构建过滤器
+        // 构建过滤器:
         // department IN [用户可访问部门] AND accessLevel IN [用户可访问级别]
-        return MetadataFilterBuilder.metadataKey("department").isIn(user.accessDepartments)
-                .and(MetadataFilterBuilder.metadataKey("accessLevel").isIn(allowedLevels));
+        // 只有同时满足两个条件的文档才会被返回
+        return MetadataFilterBuilder.metadataKey("department")
+                    .isIn(user.accessDepartments)           // 部门过滤
+                .and(MetadataFilterBuilder.metadataKey("accessLevel")
+                    .isIn(allowedLevels));                  // 权限级别过滤
     }
 
     /**

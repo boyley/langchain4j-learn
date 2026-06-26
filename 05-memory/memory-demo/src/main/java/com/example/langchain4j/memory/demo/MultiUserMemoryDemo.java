@@ -37,25 +37,71 @@ public class MultiUserMemoryDemo {
     private static final Map<String, MessageWindowChatMemory> userMemories = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
-        // 使用 LangChain4j 官方 Demo API
+        /**
+         * 构建 ChatLanguageModel
+         *
+         * OpenAiChatModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址                                           │
+         * │ apiKey          │ API 密钥                                           │
+         * │ modelName       │ 模型名称                                           │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         ChatLanguageModel model = OpenAiChatModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("gpt-4o-mini")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址
+                .apiKey("demo")                                    // API 密钥
+                .modelName("gpt-4o-mini")                          // 模型名称
                 .build();
 
         System.out.println("=== 多用户会话隔离示例 ===\n");
 
-        // 创建支持多用户的 Assistant
-        // ChatMemoryProvider 根据 memoryId 为每个用户创建/获取独立的记忆
+        /**
+         * 多用户记忆隔离 - chatMemoryProvider
+         * ═══════════════════════════════════════════════════════════════════════════
+         *
+         * 问题：单个 chatMemory 被所有用户共享，会导致对话混淆
+         * 解决：使用 chatMemoryProvider 为每个用户创建独立的记忆
+         *
+         * chatMemoryProvider 工作原理：
+         * ┌───────────────────────────────────────────────────────────────────────┐
+         * │ 1. 用户调用 assistant.chat(memoryId, message)                         │
+         * │ 2. LangChain4j 提取 @MemoryId 参数值                                   │
+         * │ 3. 调用 chatMemoryProvider.get(memoryId) 获取该用户的记忆              │
+         * │ 4. 如果是新用户，创建新的 ChatMemory                                   │
+         * │ 5. 如果是老用户，返回已有的 ChatMemory                                 │
+         * │ 6. 后续对话自动使用该用户的记忆                                        │
+         * └───────────────────────────────────────────────────────────────────────┘
+         *
+         * AiServices.builder() 参数说明：
+         * ┌──────────────────────┬──────────────────────────────────────────────┐
+         * │ 参数                 │ 说明                                         │
+         * ├──────────────────────┼──────────────────────────────────────────────┤
+         * │ chatLanguageModel    │ 必须：聊天模型                                │
+         * │ chatMemoryProvider   │ 多用户记忆提供者，根据 @MemoryId 隔离用户     │
+         * │                      │ 参数: memoryId -> ChatMemory                 │
+         * │                      │ 返回: 该用户的独立记忆实例                    │
+         * └──────────────────────┴──────────────────────────────────────────────┘
+         *
+         * MessageWindowChatMemory.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ id              │ 记忆 ID，用于区分不同会话                           │
+         * │ maxMessages     │ 最大消息数，超出后自动删除最早的消息                 │
+         * │ chatMemoryStore │ 可选：持久化存储 (见 PersistentMemoryDemo)         │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         */
         MultiUserAssistant assistant = AiServices.builder(MultiUserAssistant.class)
-                .chatLanguageModel(model)
-                .chatMemoryProvider(memoryId -> {
+                .chatLanguageModel(model)                          // 必须：聊天模型
+                .chatMemoryProvider(memoryId -> {                  // 多用户记忆提供者
                     // 为每个用户创建独立的记忆存储
+                    // computeIfAbsent: 如果不存在则创建，存在则返回已有的
                     return userMemories.computeIfAbsent(memoryId.toString(),
                         id -> MessageWindowChatMemory.builder()
-                            .id(id)
-                            .maxMessages(10)
+                            .id(id)                   // 记忆 ID = 用户 ID
+                            .maxMessages(10)          // 最多保留 10 条消息
                             .build());
                 })
                 .build();

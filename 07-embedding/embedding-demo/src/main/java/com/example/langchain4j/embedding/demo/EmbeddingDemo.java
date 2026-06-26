@@ -64,11 +64,50 @@ import java.util.stream.Collectors;
 public class EmbeddingDemo {
 
     public static void main(String[] args) {
-        // 使用 LangChain4j 官方 Demo API - 无需 API Key！
+        /**
+         * 构建 EmbeddingModel - 向量化模型
+         *
+         * OpenAiEmbeddingModel.builder() 参数说明：
+         * ┌─────────────────┬────────────────────────────────────────────────────┐
+         * │ 参数            │ 说明                                               │
+         * ├─────────────────┼────────────────────────────────────────────────────┤
+         * │ baseUrl         │ API 地址，可替换为代理或兼容服务                    │
+         * │ apiKey          │ API 密钥                                           │
+         * │ modelName       │ 向量模型名称，不同模型生成不同维度的向量            │
+         * │                 │ - text-embedding-3-small: 1536 维，性价比高        │
+         * │                 │ - text-embedding-3-large: 3072 维，精度更高        │
+         * │                 │ - text-embedding-ada-002: 1536 维，旧版            │
+         * │ dimensions      │ 可选：指定输出向量维度（部分模型支持）              │
+         * │ timeout         │ 请求超时时间                                       │
+         * │ maxRetries      │ 失败重试次数                                       │
+         * │ logRequests     │ 是否打印请求日志                                   │
+         * │ logResponses    │ 是否打印响应日志                                   │
+         * └─────────────────┴────────────────────────────────────────────────────┘
+         *
+         * EmbeddingModel 常用方法：
+         * ┌────────────────────────────┬─────────────────────────────────────────┐
+         * │ 方法                       │ 说明                                    │
+         * ├────────────────────────────┼─────────────────────────────────────────┤
+         * │ embed(String text)         │ 将单个文本转为向量                       │
+         * │ embedAll(List<String>)     │ 批量将多个文本转为向量                   │
+         * │ embed(TextSegment)         │ 将 TextSegment 转为向量                 │
+         * └────────────────────────────┴─────────────────────────────────────────┘
+         *
+         * 返回值说明：
+         * ┌────────────────────────────┬─────────────────────────────────────────┐
+         * │ 类型                       │ 说明                                    │
+         * ├────────────────────────────┼─────────────────────────────────────────┤
+         * │ Response<Embedding>        │ 包装类，.content() 获取实际向量          │
+         * │ Embedding                  │ 向量对象，.vector() 获取 float 数组      │
+         * │ embedding.dimension()      │ 向量维度（如 1536）                      │
+         * └────────────────────────────┴─────────────────────────────────────────┘
+         */
         EmbeddingModel model = OpenAiEmbeddingModel.builder()
-                .baseUrl("http://langchain4j.dev/demo/openai/v1")
-                .apiKey("demo")
-                .modelName("text-embedding-3-small")
+                .baseUrl("http://langchain4j.dev/demo/openai/v1")  // API 地址
+                .apiKey("demo")                                    // API 密钥
+                .modelName("text-embedding-3-small")               // 向量模型 (1536 维)
+                // .dimensions(512)                                // 可选：降维到 512 维
+                // .timeout(Duration.ofSeconds(60))                // 可选：超时时间
                 .build();
 
         System.out.println("=== Embedding 文本向量化示例 ===\n");
