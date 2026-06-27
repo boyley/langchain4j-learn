@@ -33,6 +33,7 @@
         <module>07-embedding</module>
         <module>08-rag</module>
         <module>09-agent</module>
+        <module>10-vector-stores</module>
     </modules>
 
     <dependencyManagement>
