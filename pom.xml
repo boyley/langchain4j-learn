@@ -34,6 +34,7 @@
         <module>08-rag</module>
         <module>09-agent</module>
         <module>10-vector-stores</module>
+        <module>11-knowledge-base</module>
     </modules>
 
     <dependencyManagement>

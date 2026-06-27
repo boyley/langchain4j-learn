@@ -1,0 +1,123 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: knowledge-base-service
+
+  # 数据库配置 (存储知识文档元数据)
+  datasource:
+    url: jdbc:mysql://localhost:3306/knowledge_db?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update  # 自动更新表结构
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+
+# ==================== 知识库配置 ====================
+knowledge:
+
+  # 嵌入模型配置
+  embedding:
+    provider: openai  # 支持: openai, azure, local
+    openai:
+      api-key: ${OPENAI_API_KEY:}  # 从环境变量读取
+      base-url: ${OPENAI_BASE_URL:}  # 代理地址 (可选)
+      model: text-embedding-3-small  # 模型名称
+
+  # 向量存储配置 (选择一个启用)
+  vector-store:
+    type: redis  # 支持: redis, pgvector, milvus, elasticsearch
+    dimension: 1536  # 向量维度 (必须与模型匹配)
+
+    # Redis 配置 (type=redis 时生效)
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      index-name: knowledge_vectors
+
+    # PostgreSQL pgvector 配置 (type=pgvector 时生效)
+    pgvector:
+      host: ${PG_HOST:localhost}
+      port: ${PG_PORT:5432}
+      database: ${PG_DATABASE:knowledge_db}
+      user: ${PG_USER:postgres}
+      password: ${PG_PASSWORD:postgres}
+      table: knowledge_embeddings
+
+    # Milvus 配置 (type=milvus 时生效)
+    milvus:
+      host: ${MILVUS_HOST:localhost}
+      port: ${MILVUS_PORT:19530}
+      collection-name: knowledge_vectors
+
+  # 知识源配置
+  source:
+    # 数据库知识源
+    database:
+      enabled: true
+
+    # 文件系统知识源
+    file:
+      enabled: false  # 需要时启用
+      root-path: /data/knowledge/docs
+
+    # Confluence 知识源 (可选)
+    confluence:
+      enabled: false
+      base-url: https://your-company.atlassian.net/wiki
+      username: ${CONFLUENCE_USER:}
+      api-token: ${CONFLUENCE_TOKEN:}
+      space-key: KB
+
+  # 知识处理管道配置
+  pipeline:
+    batch-size: 100        # 每批处理文档数
+    embedding-batch-size: 20  # 每批向量化数量
+    segment-max-size: 500  # 每个片段最大字符数
+    segment-overlap: 50    # 片段重叠字符数
+
+  # 同步配置
+  sync:
+    incremental:
+      enabled: true
+      cron: "0 0 * * * *"   # 每小时增量同步
+    full:
+      enabled: false
+      cron: "0 0 3 * * *"   # 每天凌晨3点全量同步
+
+  # 搜索配置
+  search:
+    default-max-results: 5
+    default-min-score: 0.5
+
+# ==================== 监控配置 ====================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# ==================== 日志配置 ====================
+logging:
+  level:
+    root: INFO
+    com.example.knowledge: DEBUG
+    dev.langchain4j: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
