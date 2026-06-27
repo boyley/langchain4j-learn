@@ -16,16 +16,43 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * 文件系统知识源实现
+ * 文件系统知识源实现 (企业级)
  *
  * 从指定目录递归读取文档文件 (PDF/Word/TXT/Markdown等)。
+ *
+ * ══════════════════════════════════════════════════════════════
+ * 企业级设计要点:
+ * ══════════════════════════════════════════════════════════════
+ *
+ * 1. 索引与解析分离
+ *    - 先扫描建立文件索引 (只读元数据，不解析内容)
+ *    - fetchBatch 时才真正解析文件内容
+ *    - 避免每次都全量扫描解析
+ *
+ * 2. 懒加载
+ *    - 只在需要时才解析文件
+ *    - 分批处理，每批只解析当前批次的文件
+ *    - 大文件不会一次性全部加载到内存
+ *
+ * 3. 增量索引
+ *    - 缓存文件索引，支持增量更新
+ *    - 通过文件修改时间判断是否需要重新索引
+ *
+ * 4. 大文件处理
+ *    - 超过阈值的文件会记录警告
+ *    - 实际生产中可接入分片处理或流式解析
+ *
+ * ══════════════════════════════════════════════════════════════
  *
  * 适用场景:
  * - 知识存储在文件服务器
@@ -35,6 +62,8 @@ import java.util.stream.Stream;
  * 配置:
  * knowledge.source.file.enabled=true
  * knowledge.source.file.root-path=/data/knowledge/docs
+ * knowledge.source.file.max-file-size-mb=50
+ * knowledge.source.file.index-cache-minutes=30
  *
  * 支持的格式:
  * - 文本: .txt, .md, .json, .xml, .csv
@@ -49,11 +78,44 @@ public class FileSystemKnowledgeSource implements KnowledgeSource {
     @Value("${knowledge.source.file.root-path:}")
     private String rootPath;
 
+    @Value("${knowledge.source.file.max-file-size-mb:50}")
+    private int maxFileSizeMB;
+
+    @Value("${knowledge.source.file.index-cache-minutes:30}")
+    private int indexCacheMinutes;
+
     // 解析器映射表
     private final Map<String, DocumentParser> parsers = new HashMap<>();
 
-    // 文件缓存 (用于增量同步判断)
-    private final Map<String, Long> fileModTimeCache = new HashMap<>();
+    // ═══════════════════════════════════════════════════════════════════
+    // 文件索引缓存 (核心优化点)
+    // ═══════════════════════════════════════════════════════════════════
+    // 只存储文件路径和元数据，不存储文件内容
+    // 这样 fetchBatch 时不需要重新扫描目录
+    // ═══════════════════════════════════════════════════════════════════
+
+    /**
+     * 文件索引项 - 只存储元数据，不存储内容
+     */
+    private record FileIndexEntry(
+            Path path,
+            long size,
+            long lastModified,
+            String extension
+    ) {}
+
+    // 文件索引缓存
+    private volatile List<FileIndexEntry> fileIndex = new ArrayList<>();
+    private volatile long indexBuildTime = 0;
+    private final Object indexLock = new Object();
+
+    // 文件修改时间缓存 (用于增量同步判断)
+    private final Map<String, Long> fileModTimeCache = new ConcurrentHashMap<>();
+
+    // 统计信息
+    private final AtomicLong totalFilesScanned = new AtomicLong(0);
+    private final AtomicLong totalFilesParsed = new AtomicLong(0);
+    private final AtomicLong skippedLargeFiles = new AtomicLong(0);
 
     @PostConstruct
     public void init() {
@@ -80,7 +142,113 @@ public class FileSystemKnowledgeSource implements KnowledgeSource {
         parsers.put("pptx", officeParser);
         parsers.put("ppt", officeParser);
 
-        log.info("文件系统知识源初始化完成, rootPath={}, 支持格式={}", rootPath, parsers.keySet());
+        log.info("文件系统知识源初始化完成, rootPath={}, 支持格式={}, 最大文件={}MB",
+                rootPath, parsers.keySet(), maxFileSizeMB);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 索引管理 (企业级核心优化)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * 构建或刷新文件索引
+     *
+     * 只扫描目录结构和文件元数据，不读取文件内容。
+     * 这样即使有 10000 个文件，索引构建也很快 (通常 < 1秒)
+     */
+    private void buildFileIndex(boolean forceRefresh) {
+        long now = System.currentTimeMillis();
+        long cacheExpireTime = indexCacheMinutes * 60 * 1000L;
+
+        // 检查缓存是否有效
+        if (!forceRefresh && !fileIndex.isEmpty() && (now - indexBuildTime) < cacheExpireTime) {
+            log.debug("使用缓存的文件索引, 剩余有效时间={}秒",
+                    (cacheExpireTime - (now - indexBuildTime)) / 1000);
+            return;
+        }
+
+        synchronized (indexLock) {
+            // 双重检查
+            if (!forceRefresh && !fileIndex.isEmpty() && (now - indexBuildTime) < cacheExpireTime) {
+                return;
+            }
+
+            log.info("开始构建文件索引, rootPath={}", rootPath);
+            long startTime = System.currentTimeMillis();
+
+            List<FileIndexEntry> newIndex = new ArrayList<>();
+            Path root = Paths.get(rootPath);
+
+            try {
+                // 使用 walkFileTree 更高效，可以在遍历时获取属性
+                Files.walkFileTree(root, new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                        String ext = getExtension(file).toLowerCase();
+                        if (parsers.containsKey(ext)) {
+                            newIndex.add(new FileIndexEntry(
+                                    file,
+                                    attrs.size(),
+                                    attrs.lastModifiedTime().toMillis(),
+                                    ext
+                            ));
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path file, IOException exc) {
+                        log.warn("无法访问文件: {}", file);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+            } catch (IOException e) {
+                log.error("构建文件索引失败", e);
+            }
+
+            // 按修改时间倒序排列 (最新的优先处理)
+            newIndex.sort((a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+
+            this.fileIndex = newIndex;
+            this.indexBuildTime = System.currentTimeMillis();
+            this.totalFilesScanned.addAndGet(newIndex.size());
+
+            long elapsed = System.currentTimeMillis() - startTime;
+            log.info("文件索引构建完成, 文件数={}, 耗时={}ms", newIndex.size(), elapsed);
+        }
+    }
+
+    /**
+     * 强制刷新索引
+     */
+    public void refreshIndex() {
+        buildFileIndex(true);
+    }
+
+    /**
+     * 获取索引统计信息
+     */
+    public Map<String, Object> getIndexStats() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        stats.put("indexedFiles", fileIndex.size());
+        stats.put("indexBuildTime", indexBuildTime > 0 ?
+                LocalDateTime.ofInstant(java.time.Instant.ofEpochMilli(indexBuildTime), ZoneId.systemDefault()) : null);
+        stats.put("totalFilesScanned", totalFilesScanned.get());
+        stats.put("totalFilesParsed", totalFilesParsed.get());
+        stats.put("skippedLargeFiles", skippedLargeFiles.get());
+        stats.put("cacheValidMinutes", indexCacheMinutes);
+
+        // 按扩展名统计
+        Map<String, Long> byExtension = fileIndex.stream()
+                .collect(Collectors.groupingBy(FileIndexEntry::extension, Collectors.counting()));
+        stats.put("byExtension", byExtension);
+
+        // 统计大文件数量
+        long maxBytes = maxFileSizeMB * 1024L * 1024L;
+        long largeFileCount = fileIndex.stream().filter(f -> f.size() > maxBytes).count();
+        stats.put("largeFileCount", largeFileCount);
+
+        return stats;
     }
 
     @Override
@@ -102,12 +270,53 @@ public class FileSystemKnowledgeSource implements KnowledgeSource {
         return Files.exists(path) && Files.isDirectory(path);
     }
 
+    /**
+     * 全量获取 (企业级: 内部使用分批处理)
+     *
+     * ⚠️ 注意: 如果文件数量很大，建议使用 batchIterator() 或 fetchBatch()
+     * 这个方法会将所有文档加载到内存，可能导致 OOM
+     */
     @Override
     public List<KnowledgeDocument> fetchAll() {
-        log.info("开始全量扫描文件目录: {}", rootPath);
-        return fetchIncremental(null);
+        log.info("开始全量获取文件, rootPath={}", rootPath);
+
+        if (!isAvailable()) {
+            log.warn("文件目录不可用: {}", rootPath);
+            return Collections.emptyList();
+        }
+
+        // 使用分批获取，避免一次性扫描所有文件
+        buildFileIndex(true); // 强制刷新索引
+
+        int totalFiles = fileIndex.size();
+        if (totalFiles > 1000) {
+            log.warn("文件数量较大 ({}), 建议使用 fetchBatch() 或 batchIterator() 分批处理", totalFiles);
+        }
+
+        // 分批加载
+        List<KnowledgeDocument> allDocs = new ArrayList<>();
+        int batchSize = 100;
+
+        for (int offset = 0; offset < totalFiles; offset += batchSize) {
+            List<KnowledgeDocument> batch = fetchBatch(offset, batchSize);
+            allDocs.addAll(batch);
+
+            // 打印进度
+            if (totalFiles > 100) {
+                int progress = Math.min(100, (offset + batchSize) * 100 / totalFiles);
+                log.info("全量获取进度: {}% ({}/{})", progress, Math.min(offset + batchSize, totalFiles), totalFiles);
+            }
+        }
+
+        log.info("全量获取完成, 共 {} 篇文档", allDocs.size());
+        return allDocs;
     }
 
+    /**
+     * 增量获取 (只获取自上次同步后修改的文件)
+     *
+     * 基于索引过滤，只解析需要处理的文件
+     */
     @Override
     public List<KnowledgeDocument> fetchIncremental(LocalDateTime lastSyncTime) {
         if (!isAvailable()) {
@@ -115,64 +324,171 @@ public class FileSystemKnowledgeSource implements KnowledgeSource {
             return Collections.emptyList();
         }
 
-        List<KnowledgeDocument> documents = new ArrayList<>();
-        Path root = Paths.get(rootPath);
-
-        try (Stream<Path> pathStream = Files.walk(root)) {
-            List<Path> files = pathStream
-                    .filter(Files::isRegularFile)
-                    .filter(this::isSupportedFile)
-                    .filter(path -> shouldProcess(path, lastSyncTime))
-                    .collect(Collectors.toList());
-
-            log.info("找到 {} 个需要处理的文件", files.size());
-
-            for (Path filePath : files) {
-                try {
-                    KnowledgeDocument doc = parseFile(filePath);
-                    if (doc != null) {
-                        documents.add(doc);
-                        // 更新缓存
-                        fileModTimeCache.put(filePath.toString(), getFileModTime(filePath));
-                    }
-                } catch (Exception e) {
-                    log.error("解析文件失败: {}", filePath, e);
-                }
-            }
-        } catch (IOException e) {
-            log.error("扫描目录失败: {}", rootPath, e);
+        if (lastSyncTime == null) {
+            log.info("lastSyncTime 为空，执行全量获取");
+            return fetchAll();
         }
 
-        log.info("文件系统知识源获取到 {} 篇文档", documents.size());
+        // 刷新索引
+        buildFileIndex(true);
+
+        // 过滤出需要处理的文件
+        long syncTimeMillis = lastSyncTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        List<FileIndexEntry> changedFiles = fileIndex.stream()
+                .filter(entry -> entry.lastModified() > syncTimeMillis)
+                .collect(Collectors.toList());
+
+        log.info("增量同步: 发现 {} 个文件自 {} 以来有变更", changedFiles.size(), lastSyncTime);
+
+        if (changedFiles.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        // 解析变更的文件
+        List<KnowledgeDocument> documents = new ArrayList<>();
+        long maxBytes = maxFileSizeMB * 1024L * 1024L;
+
+        for (FileIndexEntry entry : changedFiles) {
+            try {
+                if (entry.size() > maxBytes) {
+                    log.warn("跳过超大文件: {} ({}MB)", entry.path().getFileName(), entry.size() / 1024 / 1024);
+                    skippedLargeFiles.incrementAndGet();
+                    continue;
+                }
+
+                KnowledgeDocument doc = parseFile(entry.path());
+                if (doc != null) {
+                    documents.add(doc);
+                    totalFilesParsed.incrementAndGet();
+                    fileModTimeCache.put(entry.path().toString(), entry.lastModified());
+                }
+            } catch (Exception e) {
+                log.error("解析文件失败: {}", entry.path(), e);
+            }
+        }
+
+        log.info("增量同步完成, 解析 {} 篇文档", documents.size());
         return documents;
     }
 
+    /**
+     * 分批获取文档 (企业级实现)
+     *
+     * ══════════════════════════════════════════════════════════════
+     * 核心优化:
+     * 1. 使用文件索引，不重复扫描目录
+     * 2. 只解析当前批次的文件，不全量加载
+     * 3. 跳过超大文件，避免 OOM
+     * ══════════════════════════════════════════════════════════════
+     *
+     * 调用示例:
+     *   第1批: fetchBatch(0, 100)   → 解析文件 0-99
+     *   第2批: fetchBatch(100, 100) → 解析文件 100-199
+     *   ...
+     *
+     * @param offset 起始位置
+     * @param limit  每批数量
+     * @return 当前批次的文档列表
+     */
     @Override
     public List<KnowledgeDocument> fetchBatch(int offset, int limit) {
-        // 文件系统不支持分批，返回全部后由上层处理
-        List<KnowledgeDocument> all = fetchAll();
-        int end = Math.min(offset + limit, all.size());
-        if (offset >= all.size()) {
+        if (!isAvailable()) {
             return Collections.emptyList();
         }
-        return all.subList(offset, end);
+
+        // 1. 确保索引已构建 (使用缓存，不会每次都扫描)
+        buildFileIndex(false);
+
+        // 2. 计算本批次范围
+        int indexSize = fileIndex.size();
+        if (offset >= indexSize) {
+            log.debug("fetchBatch: offset={} 超出索引范围 {}", offset, indexSize);
+            return Collections.emptyList();
+        }
+
+        int end = Math.min(offset + limit, indexSize);
+        List<FileIndexEntry> batch = fileIndex.subList(offset, end);
+
+        log.info("fetchBatch: 处理文件 [{}-{}], 共 {} 个", offset, end - 1, batch.size());
+
+        // 3. 只解析当前批次的文件
+        List<KnowledgeDocument> documents = new ArrayList<>();
+        long maxBytes = maxFileSizeMB * 1024L * 1024L;
+
+        for (FileIndexEntry entry : batch) {
+            try {
+                // 跳过超大文件
+                if (entry.size() > maxBytes) {
+                    log.warn("跳过超大文件: {} ({}MB > {}MB)",
+                            entry.path().getFileName(),
+                            entry.size() / 1024 / 1024,
+                            maxFileSizeMB);
+                    skippedLargeFiles.incrementAndGet();
+                    continue;
+                }
+
+                // 解析文件
+                KnowledgeDocument doc = parseFile(entry.path());
+                if (doc != null) {
+                    documents.add(doc);
+                    totalFilesParsed.incrementAndGet();
+                }
+
+            } catch (Exception e) {
+                log.error("解析文件失败: {}", entry.path(), e);
+            }
+        }
+
+        log.info("fetchBatch: 成功解析 {} 个文档", documents.size());
+        return documents;
     }
 
+    /**
+     * 使用迭代器模式分批处理 (更节省内存)
+     *
+     * 使用方式:
+     * ```java
+     * Iterator<List<KnowledgeDocument>> iter = source.batchIterator(100);
+     * while (iter.hasNext()) {
+     *     List<KnowledgeDocument> batch = iter.next();
+     *     processBatch(batch);
+     * }
+     * ```
+     */
+    public Iterator<List<KnowledgeDocument>> batchIterator(int batchSize) {
+        buildFileIndex(false);
+
+        return new Iterator<>() {
+            private int currentOffset = 0;
+
+            @Override
+            public boolean hasNext() {
+                return currentOffset < fileIndex.size();
+            }
+
+            @Override
+            public List<KnowledgeDocument> next() {
+                if (!hasNext()) {
+                    throw new NoSuchElementException();
+                }
+                List<KnowledgeDocument> batch = fetchBatch(currentOffset, batchSize);
+                currentOffset += batchSize;
+                return batch;
+            }
+        };
+    }
+
+    /**
+     * 统计文件数量 (使用索引，无需重新扫描)
+     */
     @Override
     public long count() {
         if (!isAvailable()) {
             return 0;
         }
-
-        try (Stream<Path> pathStream = Files.walk(Paths.get(rootPath))) {
-            return pathStream
-                    .filter(Files::isRegularFile)
-                    .filter(this::isSupportedFile)
-                    .count();
-        } catch (IOException e) {
-            log.error("统计文件数量失败", e);
-            return 0;
-        }
+        buildFileIndex(false);
+        return fileIndex.size();
     }
 
     @Override
@@ -187,45 +503,6 @@ public class FileSystemKnowledgeSource implements KnowledgeSource {
             return parseFile(path);
         }
         return null;
-    }
-
-    /**
-     * 判断是否需要处理此文件
-     */
-    private boolean shouldProcess(Path path, LocalDateTime lastSyncTime) {
-        if (lastSyncTime == null) {
-            return true; // 全量同步
-        }
-
-        try {
-            long fileModTime = getFileModTime(path);
-            long syncTime = lastSyncTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-
-            // 文件修改时间 > 上次同步时间
-            return fileModTime > syncTime;
-        } catch (Exception e) {
-            log.warn("获取文件修改时间失败: {}", path, e);
-            return true; // 无法判断则处理
-        }
-    }
-
-    /**
-     * 获取文件修改时间
-     */
-    private long getFileModTime(Path path) {
-        try {
-            return Files.getLastModifiedTime(path).toMillis();
-        } catch (IOException e) {
-            return 0;
-        }
-    }
-
-    /**
-     * 判断是否支持的文件格式
-     */
-    private boolean isSupportedFile(Path path) {
-        String ext = getExtension(path).toLowerCase();
-        return parsers.containsKey(ext);
     }
 
     /**
