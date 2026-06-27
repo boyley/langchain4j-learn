@@ -69,10 +69,12 @@ knowledge:
     database:
       enabled: true
 
-    # 文件系统知识源
+    # 文件系统知识源 (企业级配置)
     file:
       enabled: false  # 需要时启用
       root-path: /data/knowledge/docs
+      max-file-size-mb: 50      # 跳过超过此大小的文件 (MB)
+      index-cache-minutes: 30   # 文件索引缓存时间 (分钟)
 
     # Confluence 知识源 (可选)
     confluence:
