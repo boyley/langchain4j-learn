@@ -4,6 +4,7 @@ import com.example.knowledge.entity.KnowledgeDocument;
 import com.example.knowledge.entity.SyncStatus;
 import com.example.knowledge.repository.KnowledgeDocumentRepository;
 import com.example.knowledge.repository.SyncStatusRepository;
+import com.example.knowledge.service.ContentService;
 import com.example.knowledge.source.KnowledgeSource;
 import com.example.knowledge.store.VectorStoreService;
 import dev.langchain4j.data.document.Document;
@@ -29,10 +30,23 @@ import java.util.List;
  * 核心处理流程:
  * 知识源 → 分割 → 向量化 → 存储
  *
+ * ═══════════════════════════════════════════════════════════════════════════
+ * 【企业级设计】内容分离加载
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * 批量获取文档列表时:
+ *   - 只加载元数据 (KnowledgeDocument)，不含 content
+ *   - 避免一次性加载大量内容导致 OOM
+ *
+ * 处理单个文档时:
+ *   - 通过 ContentService 单独获取内容
+ *   - 处理完成后内容可被 GC 回收
+ *
  * 关键设计:
  * 1. 增量同步 - 只处理变化的文档
  * 2. 批量处理 - 避免内存溢出
- * 3. 失败重试 - 记录失败状态，支持重试
+ * 3. 内容分离 - 按需加载大内容
+ * 4. 失败重试 - 记录失败状态，支持重试
  */
 @Slf4j
 @Service
@@ -43,6 +57,7 @@ public class KnowledgePipeline {
     private final VectorStoreService vectorStore;
     private final KnowledgeDocumentRepository documentRepository;
     private final SyncStatusRepository syncStatusRepository;
+    private final ContentService contentService;
 
     @Value("${knowledge.pipeline.batch-size:100}")
     private int batchSize;
@@ -129,7 +144,7 @@ public class KnowledgePipeline {
     /**
      * 处理单个文档
      *
-     * @param doc 文档
+     * @param doc 文档 (可能含临时内容，或需要从数据库加载)
      * @return 生成的片段数
      */
     public int processDocument(KnowledgeDocument doc) {
@@ -139,20 +154,34 @@ public class KnowledgePipeline {
             // 1. 删除旧向量 (如果存在)
             vectorStore.deleteByDocId(doc.getDocId());
 
-            // 2. 构建 Document 对象
+            // 2. 获取内容
+            // 优先使用临时字段 (来自 FileSystemKnowledgeSource 等外部源)
+            // 如果没有，则从数据库加载 (来自 DatabaseKnowledgeSource)
+            String content = doc.getContent();
+            if (content == null || content.isEmpty()) {
+                content = contentService.getContent(doc.getDocId())
+                        .orElseThrow(() -> new RuntimeException("文档内容不存在: " + doc.getDocId()));
+                log.debug("从数据库加载内容: docId={}, size={}", doc.getDocId(), content.length());
+            } else {
+                // 外部来源的内容需要保存到数据库
+                contentService.saveDocumentWithContent(doc, content);
+                log.debug("保存外部内容到数据库: docId={}, size={}", doc.getDocId(), content.length());
+            }
+
+            // 3. 构建 Document 对象
             Metadata metadata = new Metadata();
             metadata.put("docId", doc.getDocId());
             metadata.put("title", doc.getTitle());
             metadata.put("category", doc.getCategory() != null ? doc.getCategory() : "");
             metadata.put("source", doc.getSource() != null ? doc.getSource() : "");
 
-            Document document = Document.from(doc.getContent(), metadata);
+            Document document = Document.from(content, metadata);
 
-            // 3. 分割文档
+            // 4. 分割文档
             List<TextSegment> segments = getSplitter().split(document);
             log.debug("文档 {} 分割为 {} 个片段", doc.getDocId(), segments.size());
 
-            // 4. 批量向量化并存储
+            // 5. 批量向量化并存储
             for (int i = 0; i < segments.size(); i += embeddingBatchSize) {
                 int end = Math.min(i + embeddingBatchSize, segments.size());
                 List<TextSegment> batch = segments.subList(i, end);
@@ -168,16 +197,33 @@ public class KnowledgePipeline {
                 vectorStore.storeBatch(embeddings, batch);
             }
 
-            // 5. 更新文档的向量化状态
-            documentRepository.updateVectorStatus(doc.getDocId(), 1, LocalDateTime.now());
+            // 6. 更新文档的向量化状态
+            documentRepository.updateVectorStatus(doc.getDocId(), 1, LocalDateTime.now(), segments.size());
+
+            // 7. 清空临时内容，帮助 GC
+            doc.setContent(null);
 
             return segments.size();
 
         } catch (Exception e) {
             log.error("处理文档失败: {}", doc.getDocId(), e);
-            documentRepository.updateVectorStatus(doc.getDocId(), 2, LocalDateTime.now());
+            documentRepository.updateVectorStatus(doc.getDocId(), 2, LocalDateTime.now(), 0);
             throw e;
         }
+    }
+
+    /**
+     * 处理单个文档 (带内容参数，用于外部来源)
+     *
+     * @param doc     文档元数据
+     * @param content 文档内容
+     * @return 生成的片段数
+     */
+    public int processDocumentWithContent(KnowledgeDocument doc, String content) {
+        // 先保存内容
+        contentService.saveDocumentWithContent(doc, content);
+        // 再处理向量化
+        return processDocument(doc);
     }
 
     /**
@@ -189,25 +235,7 @@ public class KnowledgePipeline {
 
         for (KnowledgeDocument doc : docs) {
             try {
-                // 先保存到数据库 (如果是外部来源)
-                if (doc.getId() == null) {
-                    KnowledgeDocument existing = documentRepository.findByDocId(doc.getDocId()).orElse(null);
-                    if (existing != null) {
-                        // 更新
-                        existing.setContent(doc.getContent());
-                        existing.setTitle(doc.getTitle());
-                        existing.setCategory(doc.getCategory());
-                        existing.setVersion(doc.getVersion());
-                        existing.setVectorStatus(0);
-                        documentRepository.save(existing);
-                        doc = existing;
-                    } else {
-                        // 新增
-                        doc = documentRepository.save(doc);
-                    }
-                }
-
-                // 处理文档
+                // 处理文档 (内容已经在知识源保存时写入)
                 int segments = processDocument(doc);
                 docCount++;
                 segmentCount += segments;

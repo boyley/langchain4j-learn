@@ -53,13 +53,24 @@ public interface KnowledgeDocumentRepository extends JpaRepository<KnowledgeDocu
     List<KnowledgeDocument> findPendingVectorization(Pageable pageable);
 
     /**
-     * 更新向量化状态
+     * 更新向量化状态 (含片段数)
      */
     @Modifying
-    @Query("UPDATE KnowledgeDocument d SET d.vectorStatus = :status, d.vectorTime = :vectorTime WHERE d.docId = :docId")
+    @Query("UPDATE KnowledgeDocument d SET d.vectorStatus = :status, d.vectorTime = :vectorTime, d.segmentCount = :segmentCount WHERE d.docId = :docId")
     void updateVectorStatus(@Param("docId") String docId,
                             @Param("status") Integer status,
-                            @Param("vectorTime") LocalDateTime vectorTime);
+                            @Param("vectorTime") LocalDateTime vectorTime,
+                            @Param("segmentCount") Integer segmentCount);
+
+    /**
+     * 查找所有有效文档 (不限来源)
+     */
+    List<KnowledgeDocument> findByStatus(Integer status);
+
+    /**
+     * 查找指定时间后更新的有效文档 (不限来源，用于增量同步)
+     */
+    List<KnowledgeDocument> findByStatusAndUpdateTimeAfter(Integer status, LocalDateTime updateTime);
 
     /**
      * 按分类统计文档数量
