@@ -35,6 +35,9 @@
         <module>09-agent</module>
         <module>10-vector-stores</module>
         <module>11-knowledge-base</module>
+        <module>12-multi-agent</module>
+        <module>13-mcp</module>
+        <module>14-alibaba-dashscope</module>
     </modules>
 
     <dependencyManagement>
